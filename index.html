@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fake News Detector</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: #1e293b;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+    }
+    h1 { font-size: 1.6rem; margin-bottom: 8px; }
+    .subtitle { color: #94a3b8; font-size: 0.9rem; margin-bottom: 32px; }
+    label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; }
+    input {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      margin-bottom: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: #6366f1; }
+    button {
+      width: 100%;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: #4f46e5; }
+    button:disabled { background: #334155; cursor: not-allowed; }
+
+    .result {
+      margin-top: 28px;
+      padding: 24px;
+      border-radius: 12px;
+      display: none;
+    }
+    .result.fake { background: #450a0a; border: 1px solid #ef4444; }
+    .result.real { background: #052e16; border: 1px solid #22c55e; }
+    .result-label {
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .fake .result-label { color: #ef4444; }
+    .real .result-label { color: #22c55e; }
+    .result-title { color: #94a3b8; font-size: 0.9rem; margin-bottom: 16px; }
+    .confidence-bar-bg {
+      background: #1e293b;
+      border-radius: 99px;
+      height: 8px;
+      overflow: hidden;
+    }
+    .confidence-bar {
+      height: 8px;
+      border-radius: 99px;
+      transition: width 0.6s ease;
+    }
+    .fake .confidence-bar { background: #ef4444; }
+    .real .confidence-bar { background: #22c55e; }
+    .confidence-label {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-top: 6px;
+    }
+    .error {
+      margin-top: 16px;
+      color: #f87171;
+      font-size: 0.9rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔍 Fake News Detector</h1>
+    <p class="subtitle">Paste a headline and optionally a URL to check credibility</p>
+
+    <label>Article Headline *</label>
+    <input type="text" id="titleInput" placeholder="e.g. Scientists discover cure for all diseases">
+
+    <label>Article URL (optional)</label>
+    <input type="text" id="urlInput" placeholder="e.g. https://example.com/article">
+
+    <button id="checkBtn" onclick="check()">Check Article</button>
+
+    <div class="error" id="errorMsg"></div>
+
+    <div class="result" id="result">
+      <div class="result-label" id="resultLabel"></div>
+      <div class="result-title" id="resultTitle"></div>
+      <div class="confidence-bar-bg">
+        <div class="confidence-bar" id="confidenceBar"></div>
+      </div>
+      <div class="confidence-label" id="confidenceLabel"></div>
+    </div>
+  </div>
+
+  <script>
+    async function check() {
+      const title = document.getElementById("titleInput").value.trim();
+      const url   = document.getElementById("urlInput").value.trim();
+      const btn   = document.getElementById("checkBtn");
+      const error = document.getElementById("errorMsg");
+      const result = document.getElementById("result");
+
+      error.style.display = "none";
+      result.style.display = "none";
+
+      if (!title) {
+        error.textContent = "Please enter a headline.";
+        error.style.display = "block";
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Analyzing...";
+
+      try {
+        const res = await fetch("http://127.0.0.1:5000/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, url })
+        });
+
+        const data = await res.json();
+
+        result.className = "result " + data.label.toLowerCase();
+        document.getElementById("resultLabel").textContent = data.label === "FAKE" ? "⚠ FAKE NEWS" : "✓ REAL NEWS";
+        document.getElementById("resultTitle").textContent = `"${data.title}"`;
+        document.getElementById("confidenceBar").style.width = data.confidence + "%";
+        document.getElementById("confidenceLabel").textContent = `Confidence: ${data.confidence}%`;
+        result.style.display = "block";
+
+      } catch (e) {
+        error.textContent = "Could not connect to server. Make sure server.py is running.";
+        error.style.display = "block";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Check Article";
+      }
+    }
+
+    document.addEventListener("keydown", e => {
+      if (e.key === "Enter") check();
+    });
+  </script>
+</body>
+</html>
